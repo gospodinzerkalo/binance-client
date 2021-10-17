@@ -165,10 +165,17 @@ func doRequest(request Request, cl http.Client) ([]byte, error){
 	return body, err
 }
 
+
+// validation
+var limitsWs = map[string]string{
+	"5":"5",
+	"10":"10",
+	"20":"20",
+}
 func ws(c *cli.Context) error {
 	limit := fmt.Sprintf("%s", c.Value("limit"))
-	if _, ok := limits[limit]; len(limits) > 0 && !ok {
-		return errors.ErrorLimit
+	if _, ok := limitsWs[limit]; len(limits) > 0 && !ok {
+		return errors.ErrorLimitWs
 	} else if len(limit) == 0 {
 		limit = "10"
 	}
