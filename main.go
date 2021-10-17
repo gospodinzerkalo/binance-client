@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"github.com/gospodinzerkalo/binance-client/errors"
 	"github.com/joho/godotenv"
 	"github.com/urfave/cli/v2"
@@ -14,7 +15,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"github.com/gorilla/websocket"
 )
 
 var (
@@ -93,6 +93,15 @@ type Book struct {
 	Asks 				[][]string	`json:"asks"`
 }
 
+type Result struct {
+	Bids 		[]Item		`json:"bids"`
+	Asks 		[]Item		`json:"asks"`
+}
+
+type Item struct {
+	Price 		string 		`json:"price"`
+	Amount 		string 		`json:"amount"`
+}
 
 func rest(c *cli.Context) error {
 	limit := fmt.Sprintf("%s", c.Value("limit"))
@@ -130,7 +139,7 @@ func rest(c *cli.Context) error {
 	return nil
 }
 
-func Get(limit, symbol string, cl http.Client) (*Book, error) {
+func Get(limit, symbol string, cl http.Client) (*Result, error) {
 	resp, err := doRequest(Request{
 		URL:    fmt.Sprintf("%s/depth?symbol=%s&limit=%s", binanceApiUrl, symbol, limit),
 		Method: http.MethodGet,
@@ -140,10 +149,28 @@ func Get(limit, symbol string, cl http.Client) (*Book, error) {
 		return nil, err
 	}
 
-	var result Book
+	var book Book
 
-	if err := json.Unmarshal(resp, &result); err != nil {
+
+	if err := json.Unmarshal(resp, &book); err != nil {
 		return nil, err
+	}
+
+	result := Result{
+		Bids: make([]Item,0),
+		Asks: make([]Item, 0),
+	}
+	for _, v := range book.Bids {
+		result.Bids = append(result.Bids, Item{
+			Price:  v[0],
+			Amount: v[1],
+		})
+	}
+	for _, v := range book.Asks {
+		result.Asks = append(result.Asks, Item{
+			Price:  v[0],
+			Amount: v[1],
+		})
 	}
 
 	return &result, nil
@@ -203,12 +230,28 @@ func ws(c *cli.Context) error {
 				log.Println("read:", err)
 				return
 			}
-			var res Book
-			if err := json.Unmarshal(message, &res); err != nil {
+			var book Book
+			if err := json.Unmarshal(message, &book); err != nil {
 				log.Fatal(err)
 				return
 			}
-			log.Printf("%+v", res)
+			result := Result{
+				Bids: make([]Item,0),
+				Asks: make([]Item, 0),
+			}
+			for _, v := range book.Bids {
+				result.Bids = append(result.Bids, Item{
+					Price:  v[0],
+					Amount: v[1],
+				})
+			}
+			for _, v := range book.Asks {
+				result.Asks = append(result.Asks, Item{
+					Price:  v[0],
+					Amount: v[1],
+				})
+			}
+			log.Printf("%+v", result)
 		}
 	}()
 	interrupt := make(chan os.Signal, 1)
